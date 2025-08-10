@@ -22,12 +22,9 @@ jobs:
     - name: Build with Maven
       run: mvn clean package -DskipTests
 
-    - name: Azure Login with Service Principal
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Deploy to Azure VM
+    - name: Setup SSH key
       run: |
-        scp -o StrictHostKeyChecking=no target/*.jar ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_IP }}:/home/${{ secrets.AZURE_VM_USER }}/app.jar
-        ssh -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_IP }} "nohup java -jar app.jar --server.port=8080 --server.address=0.0.0.0 > app.log 2>&1 &"
+        mkdir -p ~/.ssh
+        echo "${{ secrets.AZURE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+        chmod 600 ~/.ssh/id_ed25519
+        ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/k
