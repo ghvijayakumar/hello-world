@@ -1,13 +1,10 @@
 package com.example;
 
-/**
- * Hello world!
- *
- */
-public class App 
-{
-    public static void main( String[] args )
-    {
-        System.out.println( "Hello World!" );
+import static spark.Spark.*;
+
+public class App {
+    public static void main(String[] args) {
+        port(8080); // listen on port 8080
+        get("/", (req, res) -> "Hello World from SparkJava!");
     }
 }
