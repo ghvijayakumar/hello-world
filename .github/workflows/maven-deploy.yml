@@ -6,10 +6,10 @@ on:
       - main
 
 env:
-  ACR_NAME: youracrname  # Azure Container Registry name, no suffix
+  ACR_NAME: ghvijayakumar
   IMAGE_NAME: myapp
-  RESOURCE_GROUP: your-aks-resource-group
-  AKS_CLUSTER_NAME: your-aks-cluster
+  RESOURCE_GROUP: vijay-Resource-Group
+  AKS_CLUSTER_NAME: ghvijayakumar
   K8S_NAMESPACE: default
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
     - name: Build Maven project
       run: mvn clean package -DskipTests
 
-    - name: Login to Azure CLI
+    - name: Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -37,7 +37,7 @@ jobs:
     - name: Login to ACR
       run: az acr login --name $ACR_NAME
 
-    - name: Build and push Docker image to ACR
+    - name: Build and push Docker image
       run: |
         docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest .
         docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Login to Azure CLI
+    - name: Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -57,9 +57,5 @@ jobs:
 
     - name: Deploy app to AKS
       run: |
-        kubectl set image deployment/$IMAGE_NAME $IMAGE_NAME=$ACR_NAME.azurecr.io/$IMAGE_NAME:latest --namespace $K8S_NAMESPACE
-        kubectl rollout status deployment/$IMAGE_NAME --namespace $K8S_NAMESPACE
-
-    - name: Apply Horizontal Pod Autoscaler
-      run: |
+        kubectl apply -f k8s/deployment.yaml --namespace $K8S_NAMESPACE
         kubectl apply -f k8s/hpa.yaml --namespace $K8S_NAMESPACE
