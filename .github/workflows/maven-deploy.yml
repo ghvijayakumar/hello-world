@@ -1,35 +1,65 @@
-name: Build and Deploy Java App to Azure VM
+name: Build and Deploy to AKS
 
 on:
   push:
     branches:
       - main
 
+env:
+  ACR_NAME: youracrname  # Azure Container Registry name, no suffix
+  IMAGE_NAME: myapp
+  RESOURCE_GROUP: your-aks-resource-group
+  AKS_CLUSTER_NAME: your-aks-cluster
+  K8S_NAMESPACE: default
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
+    - name: Set up Java 17
+      uses: actions/setup-java@v3
       with:
-        distribution: temurin
+        distribution: 'temurin'
         java-version: '17'
 
-    - name: Build with Maven
+    - name: Build Maven project
       run: mvn clean package -DskipTests
 
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.AZURE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-        chmod 600 ~/.ssh/id_ed25519
-        ssh-keyscan -H ${{ secrets.AZURE_VM_IP }} >> ~/.ssh/known_hosts
+    - name: Login to Azure CLI
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy JAR and run app on VM
+    - name: Login to ACR
+      run: az acr login --name $ACR_NAME
+
+    - name: Build and push Docker image to ACR
       run: |
-        scp -o StrictHostKeyChecking=no target/*.jar ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_IP }}:/home/${{ secrets.AZURE_VM_USER }}/app.jar
-        ssh -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USER }}@${{ secrets.AZURE_VM_IP }} "nohup java -jar /home/${{ secrets.AZURE_VM_USER }}/app.jar --server.port=8080 --server.address=0.0.0.0 > app.log 2>&1 &"
+        docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest .
+        docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Login to Azure CLI
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get AKS credentials
+      run: az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
+
+    - name: Deploy app to AKS
+      run: |
+        kubectl set image deployment/$IMAGE_NAME $IMAGE_NAME=$ACR_NAME.azurecr.io/$IMAGE_NAME:latest --namespace $K8S_NAMESPACE
+        kubectl rollout status deployment/$IMAGE_NAME --namespace $K8S_NAMESPACE
+
+    - name: Apply Horizontal Pod Autoscaler
+      run: |
+        kubectl apply -f k8s/hpa.yaml --namespace $K8S_NAMESPACE
