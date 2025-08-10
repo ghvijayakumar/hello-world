@@ -57,5 +57,5 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          kubectl apply -f k8s/deployment.yaml --namespace ${{ env.K8S_NAMESPACE }}
-          kubectl apply -f k8s/hpa.yaml --namespace ${{ env.K8S_NAMESPACE }}
+          kubectl apply -f k8s/deployment.yml --namespace ${{ env.K8S_NAMESPACE }}
+          kubectl apply -f k8s/hpa.yml --namespace ${{ env.K8S_NAMESPACE }}
